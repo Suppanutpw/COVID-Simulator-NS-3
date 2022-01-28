@@ -1,10 +1,10 @@
 /*
 checklist
  - แบ่งพ่อค้ากับลูกค้า (ได้แล้ว)
- - ส่ง broadcast ด้วย arp (ใช้ประโยชน์การการที่ก่อนส่ง packet จะมีการ arp ก่อน) (ได้แล้ว)
+ - ส่ง broadcast ไปหาทุกคน (ยังไม่ได้ เจอบัค = =)
  - จับ event ว่ามีการรับ udp (ได้แล้ว)
  - สุ่มโอกาสการติดโควิด (ยังไม่ทำ)
- - ยังไม่ติดโควิดสีแดง ถ้าติดสีเขียว (ขัดใจแป๊ป)
+ - ยังไม่ติดโควิดสีแดง ถ้าติดจะเป็นสีฟ้า (ขัดใจแป๊ป)
 
 
 ใช้ mobility ในการเคลื่อนไหว
@@ -19,7 +19,7 @@ checklist
 #include "ns3/mobility-module.h"
 #include "ns3/netanim-module.h"
 #include "ns3/llc-snap-header.h"
-#define DURATION 3 // เวลาจำลอง 10 วินาที
+#define DURATION 10 // เวลาจำลอง 10 วินาที
 
 using namespace ns3;
 using namespace std;
@@ -34,8 +34,8 @@ struct rgb {
 
 struct rgb colors [] = {
   { 255, 0, 0 }, // Red
-  { 0, 255, 0 }, // Blue
-  { 0, 0, 255 }  // Green
+  { 0, 255, 0 }, // Green
+  { 0, 0, 255 }  // Blue
 };
 
 static void 
@@ -119,7 +119,7 @@ class People {
     void setUDPClient() {
       uint32_t packetSize = 1024;
       uint32_t maxPacketCount = 1;
-      Time interPacketInterval = Seconds (10.);
+      Time interPacketInterval = Seconds (1.);
       UdpEchoClientHelper client (serverAddress, port);
       client.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
       client.SetAttribute ("Interval", TimeValue (interPacketInterval));
