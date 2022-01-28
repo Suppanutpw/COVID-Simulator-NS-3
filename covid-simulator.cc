@@ -1,29 +1,47 @@
 /*
 checklist
  - แบ่งพ่อค้ากับลูกค้า (ได้แล้ว)
- - ส่ง udp แบบ broadcast (ได้แล้ว)
- - จับ event ว่ามีการรับ udp (ทำยังไง!!!!??????)
- - สุ่มโอกาสการติดโควิด (ทำยังไง!!!!??????)
+ - ส่ง broadcast ด้วย arp (ใช้ประโยชน์การการที่ก่อนส่ง packet จะมีการ arp ก่อน) (ได้แล้ว)
+ - จับ event ว่ามีการรับ udp (ได้แล้ว)
+ - สุ่มโอกาสการติดโควิด (ยังไม่ทำ)
+ - ยังไม่ติดโควิดสีแดง ถ้าติดสีเขียว (ขัดใจแป๊ป)
+
 
 ใช้ mobility ในการเคลื่อนไหว
 ใช้ udp ส่งข้อมูล
 */
 
+#include <ostream>
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
 #include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/netanim-module.h"
-#define DURATION 30 // เวลาจำลอง 30 วินาที
+#include "ns3/llc-snap-header.h"
+#define DURATION 3 // เวลาจำลอง 10 วินาที
 
 using namespace ns3;
 using namespace std;
 
+AnimationInterface * pAnim = 0;
+
+struct rgb {
+  uint8_t r; 
+  uint8_t g; 
+  uint8_t b; 
+};
+
+struct rgb colors [] = {
+  { 255, 0, 0 }, // Red
+  { 0, 255, 0 }, // Blue
+  { 0, 0, 255 }  // Green
+};
+
 static void 
 CourseChange (string context, Ptr<const MobilityModel> mobility)
 {
-  Simulator::Now ();
+  Simulator::Now();
   /* 
   Vector pos = mobility->GetPosition ();
   Vector vel = mobility->GetVelocity ();
@@ -31,6 +49,17 @@ CourseChange (string context, Ptr<const MobilityModel> mobility)
             << ", z=" << pos.z << "; VEL:" << vel.x << ", y=" << vel.y
             << ", z=" << vel.z << endl;
   */
+}
+
+// ถ้าได้รับ packet จะมาทำ function นี้ ใช้คำนวณโอกาสติดได้
+bool receiveCOVID (Ptr<NetDevice> device, Ptr<const Packet> packet, uint16_t protocol, const Address &from) { 
+
+  // ใช้คำนวณโอกาสติด
+
+  // ถ้าติดก็เปลี่ยนสี
+  pAnim->UpdateNodeColor (device->GetNode(), colors[2].r, colors[2].g, colors[2].b);
+
+  return true;
 }
 
 class People {
@@ -62,7 +91,15 @@ class People {
       csma.SetChannelAttribute ("DataRate", DataRateValue (DataRate (dataRate)));
       csma.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (delay)));
       csma.SetDeviceAttribute ("Mtu", UintegerValue (mtu));
+      //csma.SetReceiveCallback(MakeCallback(&hello));
       device = csma.Install (node);
+
+      // ตั้งค่า handler กรณีมี packet เข้ามา
+      NetDeviceContainer::Iterator i;
+      for (i = device.Begin (); i != device.End (); ++i)
+      {
+        (*i)->SetReceiveCallback (MakeCallback (&receiveCOVID));  // some NetDevice method
+      }
     }
 
     void setIPV4(string address, string netmask) {
@@ -71,6 +108,7 @@ class People {
       serverAddress = Address(interface.GetAddress (1));
     }
 
+    // เราไม่สนใจ udp เราสนตอนที่ node ส่ง arp เป็น broadcast
     void setUDPServer() {
       UdpEchoServerHelper server (port); // อย่าลืม
       apps = server.Install (node.Get (1));
@@ -81,7 +119,7 @@ class People {
     void setUDPClient() {
       uint32_t packetSize = 1024;
       uint32_t maxPacketCount = 1;
-      Time interPacketInterval = Seconds (1.);
+      Time interPacketInterval = Seconds (10.);
       UdpEchoClientHelper client (serverAddress, port);
       client.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
       client.SetAttribute ("Interval", TimeValue (interPacketInterval));
@@ -135,19 +173,26 @@ int main (int argc, char *argv[])
   // setIPV4 -> ip, netmask
   people.setIPV4("10.10.100.0", "255.255.255.0");
 
+  // แยกพ่อค้ากับลูกค้า (เคลื่อนไหวได้กับไม่ได้)
+  people.setMobility();
+
   // ตั้ง udp Server
   people.setUDPServer();
 
   // ตั้ง udp client
   people.setUDPClient();
 
-  // แยกพ่อค้ากับลูกค้า (เคลื่อนไหวได้กับไม่ได้)
-  people.setMobility();
-
   Simulator::Stop (Seconds (DURATION));
 
   // ไฟล์ NetAnimation
-  AnimationInterface anim ("covid-model.xml");
+  pAnim = new AnimationInterface ("covid-model.xml");
+  // anim.EnablePacketMetadata (true);
+
+  // เปลี่ยนสี node
+  // anim.UpdateNodeColor (people.node.Get(0), 0, 0, 255);
+
+  // เปลี่ยนขนาด node (node-id, กว้าง, ยาว)
+  // anim.UpdateNodeSize (5, 3.0, 3.0);
 
   Simulator::Run ();
   Simulator::Destroy ();
