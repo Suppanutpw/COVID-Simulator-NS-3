@@ -3,8 +3,8 @@ checklist
  - แบ่งพ่อค้ากับลูกค้า (ได้แล้ว)
  - ส่ง broadcast ไปหาทุกคน (ได้แล้ว)
  - จับ event ว่ามีการรับ udp (ได้แล้ว)
- - สุ่มโอกาสการติดโควิด (ยังไม่ทำ) แก้ได้ทีี่ function receiveCOVID
- - ยังไม่ติดโควิดสีแดง ถ้าติดจะเป็นสีฟ้า (ขัดใจแป๊ป) แก้หลังบรรทัด 246 ได้
+ - สุ่มโอกาสการติดโควิด (ได้แล้ว) แก้ได้ทีี่ function receiveCOVID
+ - ตกแต่ง UI (ได้แล้ว)
 
 
 ใช้ mobility ในการเคลื่อนไหว
@@ -19,6 +19,16 @@ checklist
 #include "ns3/mobility-module.h"
 #include "ns3/netanim-module.h"
 #define DURATION 10.0 // เวลาจำลอง 10 วินาที
+#define N 100 // จำนวนคนทั้งหมด
+#define M 80 // จำนวนลูกค้า
+#define INFECTRAD 20 // ระยะห่างที่ปลอดภัย (จำลอง 2 เมตร)
+#define INFECTCHANCE 1.5 // โอกาสติด 1.5%
+// list คนที่อยากให้ติดเชื้อ เลือกค่าใน array ได้ 0 <= infected_list[i] < N
+// โดยท่ีค่า 0 <= infected_list[i] < M จะเป็นลูกค้า
+// โดยท่ีค่า M <= infected_list[i] < N จะเป็นพ่อค้า
+// ex. N = 100, M = 80 ต้องการคนติดเชื้อเป็นลูกค้า 3 คน พ่อค้าอีก 2 คน
+// ก็ใส่ {0, 1, 2, 80, 81} ลงไป
+int infected_list[] = {0, 1, 2, 3, 4};
 
 using namespace ns3;
 using namespace std;
@@ -30,9 +40,9 @@ struct rgb {
 };
 
 struct rgb colors [] = {
-  { 255, 0, 0 }, // Red
-  { 0, 255, 0 }, // Green
-  { 0, 0, 255 }  // Blue
+  { 252, 44, 44 }, // ติดเชื้อ
+  { 127, 255, 46 }, // ลูกค้า
+  { 46, 131, 255 }  // พ่อค้า
 };
 
 class People {
@@ -52,8 +62,7 @@ class People {
     People(int people, int customer);
     void setCSMA(int dataRate, int delay, int mtu);
     void setIPV4(string address, string netmask);
-    void setUDPServer();
-    void setUDPClient();
+    void setUDPClient(int people_id, Time startTime);
     void setMobility();
     bool receiveCOVID(
       Ptr<NetDevice> dst_device, 
@@ -62,25 +71,13 @@ class People {
       const Address &src, 
       const Address &dst, 
       BridgeNetDevice::PacketType packetType);
-    Ptr<Node> getNodeFromAddress(const Address &src);
+    int getNodeIdFromAddress(const Address &src);
 };
 
 // สร้างคน 100 คน โดยแบ่งเป็นลูกค้า 80 พ่อค้า 20
-People people(100, 80);
+People people(N, M);
 AnimationInterface * pAnim = 0;
-
-static void 
-CourseChange (string context, Ptr<const MobilityModel> mobility)
-{
-  Simulator::Now();
-  /* 
-  Vector pos = mobility->GetPosition ();
-  Vector vel = mobility->GetVelocity ();
-  cout << Simulator::Now () << ", model=" << mobility << ", POS: x=" << pos.x << ", y=" << pos.y
-            << ", z=" << pos.z << "; VEL:" << vel.x << ", y=" << vel.y
-            << ", z=" << vel.z << endl;
-  */
-}
+bool is_infected[N] = {false};
 
 People::People(int people, int customer) {
   people_count = people;
@@ -112,25 +109,22 @@ void People::setIPV4(string address, string netmask) {
   serverAddress = Address(interface.GetAddress (1));
 }
 
-// เราไม่สนใจ udp เราสนตอนที่ node ส่ง arp เป็น broadcast
-void People::setUDPServer() {
-  UdpEchoServerHelper server (port); // อย่าลืม
-  apps = server.Install (node.Get (1));
-  apps.Start (Seconds (0.0));
-  apps.Stop (Seconds (DURATION));
-}
-
-void People::setUDPClient() {
+void People::setUDPClient(int people_id, Time startTime) { // เสมือนติดตั้งตัวแพร่เชื้อ (ให้เฉพาะคนติดโควิด)
   uint32_t packetSize = 1024;
   uint32_t maxPacketCount = 1000;
-  Time interPacketInterval = Seconds (1.0);
+  Time interPacketInterval = MilliSeconds (50);
   UdpEchoClientHelper client (serverAddress, port);
   client.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
   client.SetAttribute ("Interval", TimeValue (interPacketInterval));
   client.SetAttribute ("PacketSize", UintegerValue (packetSize));
-  apps = client.Install (node);
-  apps.Start (Seconds (0.0));
-  apps.Stop (Seconds (DURATION));
+  
+  // ถ้าติดก็เปลี่ยนสีพร้อมลงตัวแพร่เชื้อ
+  if (is_infected[people_id] == false) {
+    is_infected[people_id] = true;
+    apps = client.Install (node.Get (people_id));
+    apps.Start (startTime);
+    apps.Stop (Seconds (DURATION));
+  }
 }
 
 void People::setMobility() {
@@ -158,8 +152,6 @@ void People::setMobility() {
 
   for (int i = 0; i < customer_count; i++) {
     mobility_move.Install (node.Get (i)); 
-    Config::Connect ("/NodeList/*/$ns3::MobilityModel/CourseChange",
-                     MakeCallback (&CourseChange));
   } for (int i = customer_count; i < people_count; i++) {
     mobility_nomove.Install (node.Get (i));
   }
@@ -175,44 +167,51 @@ bool People::receiveCOVID (
     BridgeNetDevice::PacketType packetType) {
 
   // เช็คดูว่าเป็น UDP ไหม (ดูขนาด packet) เพื่อกรอง arp ออก
-  Packet::EnablePrinting();
   if (packet->GetSize() > 1000) {
     // คำนวณโอกาสติด
     // เอา pos จาก device ปลายทาง
+    // Packet::EnablePrinting();
     // packet->Print(cout);
 
-    /*
     // ดึง pos (x,y) ของต้นทางและปลายทางมาคำนวณระยะห่าง ยิ่งใกล้ยิ่งติดง่าย
     Ptr<MobilityModel> dst_mob = dst_device->GetNode()->GetObject<MobilityModel>();
     double dst_x = dst_mob->GetPosition().x;
     double dst_y = dst_mob->GetPosition().y;
 
-    Ptr<Node> src_node = getNodeFromAddress(src);
+    Ptr<Node> src_node = node.Get(getNodeIdFromAddress(src));
     Ptr<MobilityModel> src_mob = src_node->GetObject<MobilityModel>();
     double src_x = src_mob->GetPosition().x;
     double src_y = src_mob->GetPosition().y;
-    */
 
-    // printf("\nsource (%lf,%lf) -> dest (%lf,%lf)\n\n",src_x,src_y,dst_x,dst_y);
+    double distance = sqrt(pow(dst_x-src_x, 2) + pow(dst_y-src_y, 2));
+    if (distance < INFECTRAD) {
+      double chance = (1 - (distance/INFECTRAD))*INFECTCHANCE; // โอกาสติดโควิด
+      double random = ((double)rand() / RAND_MAX)*100;
 
-    // ถ้าติดก็เปลี่ยนสี
-    pAnim->UpdateNodeColor (dst_device->GetNode(), colors[2].r, colors[2].g, colors[2].b);
+      // เช็คว่าตัวเลขที่สุ่มจะเป็นเลขติดโควิดหรือไม่
+      if (random <= chance) {
+        int dst_node_id = getNodeIdFromAddress(dst);
+        people.setUDPClient(dst_node_id, Simulator::Now());
+        pAnim->UpdateNodeColor (dst_device->GetNode(), colors[0].r, colors[0].g, colors[0].b);
+        // printf("source (%lf,%lf) -> dest (%lf,%lf) = %lf \n", src_x, src_y, dst_x, dst_y, distance);
+      }
 
+    }
   }
   
   return true;
 }
 
-Ptr<Node> People::getNodeFromAddress(const Address &address) {
+int People::getNodeIdFromAddress(const Address &address) {
   // เอา mac address มาหาว่าเป็น node ไหนเพื่อไปดึง pos(x, y)
   int found = 0;
-  for (uint32_t i = 0; i < node.GetN(); i++) {
+  for (int i = 0; i < node.GetN(); i++) {
     if (operator == (address, node.Get(i)->GetDevice(1)->GetAddress())) {
       found = i;
       break;
     }
   }
-  return node.Get(found);
+  return found;
 }
 
 int main (int argc, char *argv[]) {
@@ -220,7 +219,7 @@ int main (int argc, char *argv[]) {
   cmd.Parse (argc, argv);
 
   // setCSMA -> DataRate, Delay, Mtu
-  people.setCSMA(5000000, 2, 1400);
+  people.setCSMA(5000000, 1, 1400);
 
   // setIPV4 -> ip, netmask
   people.setIPV4("10.10.100.0", "255.255.255.0");
@@ -228,25 +227,36 @@ int main (int argc, char *argv[]) {
   // แยกพ่อค้ากับลูกค้า (เคลื่อนไหวได้กับไม่ได้)
   people.setMobility();
 
-  // ตั้ง udp Server
-  people.setUDPServer();
+  // ตั้ง udp client ตัวแพร่เชื้อ -> คนที่ติดเชื้อ 
+  int arr_size = sizeof(infected_list)/sizeof(infected_list[0]);
+  for (int i = 0; i < arr_size; i++) {
+    people.setUDPClient(infected_list[i], Seconds(0.0));
+  }
 
-  // ตั้ง udp client
-  people.setUDPClient();
+  Simulator::Schedule (Seconds (0.00),
+    [] ()
+    {
+      for (int i = 0; i < M; i++) {
+        pAnim->UpdateNodeSize (i, 4.0, 4.0);
+        pAnim->UpdateNodeColor (people.node.Get(i), colors[1].r, colors[1].g, colors[1].b);
+      } for (int i = M; i < N; i++) {
+        pAnim->UpdateNodeSize (i, 4.0, 4.0);
+        pAnim->UpdateNodeColor (people.node.Get(i), colors[2].r, colors[2].g, colors[2].b);
+      }
 
+      int arr_size = sizeof(infected_list)/sizeof(infected_list[0]);
+      for (int i = 0; i < arr_size; i++) {
+        pAnim->UpdateNodeColor (people.node.Get(infected_list[i]), colors[0].r, colors[0].g, colors[0].b);
+      }
+    });
+  
   // จบ Simulation
   Simulator::Stop (Seconds (DURATION));
 
   // ไฟล์ NetAnimation
   pAnim = new AnimationInterface ("covid-model.xml");
-  pAnim->EnablePacketMetadata (true); // แสดงประเภท packet บนลูกศร
+  // pAnim->EnablePacketMetadata (true); // แสดงประเภท packet บนลูกศร
   pAnim->SetMaxPktsPerTraceFile (1000000);
-
-  // เปลี่ยนสี node
-  // anim.UpdateNodeColor (people.node.Get(0), 0, 0, 255);
-
-  // เปลี่ยนขนาด node (node-id, กว้าง, ยาว)
-  // anim.UpdateNodeSize (5, 3.0, 3.0);
 
   Simulator::Run ();
   Simulator::Destroy ();
