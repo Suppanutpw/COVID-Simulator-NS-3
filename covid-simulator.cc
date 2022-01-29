@@ -1,7 +1,7 @@
 /*
 checklist
  - แบ่งพ่อค้ากับลูกค้า (ได้แล้ว)
- - ส่ง broadcast ไปหาทุกคน (ยังไม่ได้ เจอบัค = =)
+ - ส่ง broadcast ไปหาทุกคน (ได้แล้ว)
  - จับ event ว่ามีการรับ udp (ได้แล้ว)
  - สุ่มโอกาสการติดโควิด (ยังไม่ทำ)
  - ยังไม่ติดโควิดสีแดง ถ้าติดจะเป็นสีฟ้า (ขัดใจแป๊ป)
@@ -18,8 +18,7 @@ checklist
 #include "ns3/internet-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/netanim-module.h"
-#include "ns3/llc-snap-header.h"
-#define DURATION 10 // เวลาจำลอง 10 วินาที
+#define DURATION 10 // เวลาจำลอง 30 วินาที
 
 using namespace ns3;
 using namespace std;
@@ -52,13 +51,25 @@ CourseChange (string context, Ptr<const MobilityModel> mobility)
 }
 
 // ถ้าได้รับ packet จะมาทำ function นี้ ใช้คำนวณโอกาสติดได้
-bool receiveCOVID (Ptr<NetDevice> device, Ptr<const Packet> packet, uint16_t protocol, const Address &from) { 
+bool receiveCOVID (
+  Ptr<NetDevice> device, 
+  Ptr<const Packet> packet, 
+  uint16_t protocol,
+  const Address &src, 
+  const Address &dst, 
+  BridgeNetDevice::PacketType packetType) {
 
-  // ใช้คำนวณโอกาสติด
+  // เช็คดูว่าเป็น UDP ไหม (ดูขนาด packet) เพื่อกรอง arp ออก
+  Packet::EnablePrinting();
+  if (packet->GetSize() > 1000) {
+    // ถ้าติดก็เปลี่ยนสี
+    pAnim->UpdateNodeColor (device->GetNode(), colors[2].r, colors[2].g, colors[2].b);
 
-  // ถ้าติดก็เปลี่ยนสี
-  pAnim->UpdateNodeColor (device->GetNode(), colors[2].r, colors[2].g, colors[2].b);
+    // ใช้คำนวณโอกาสติด
+    // packet->Print(cout);
 
+  }
+  
   return true;
 }
 
@@ -91,14 +102,13 @@ class People {
       csma.SetChannelAttribute ("DataRate", DataRateValue (DataRate (dataRate)));
       csma.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (delay)));
       csma.SetDeviceAttribute ("Mtu", UintegerValue (mtu));
-      //csma.SetReceiveCallback(MakeCallback(&hello));
       device = csma.Install (node);
 
       // ตั้งค่า handler กรณีมี packet เข้ามา
       NetDeviceContainer::Iterator i;
       for (i = device.Begin (); i != device.End (); ++i)
       {
-        (*i)->SetReceiveCallback (MakeCallback (&receiveCOVID));  // some NetDevice method
+        (*i)->SetPromiscReceiveCallback (MakeCallback (&receiveCOVID));  // some NetDevice method
       }
     }
 
@@ -112,20 +122,20 @@ class People {
     void setUDPServer() {
       UdpEchoServerHelper server (port); // อย่าลืม
       apps = server.Install (node.Get (1));
-      apps.Start (Seconds (0.0));
+      apps.Start (Seconds (1.0));
       apps.Stop (Seconds (DURATION));
     }
 
     void setUDPClient() {
       uint32_t packetSize = 1024;
-      uint32_t maxPacketCount = 1;
+      uint32_t maxPacketCount = 100;
       Time interPacketInterval = Seconds (1.);
       UdpEchoClientHelper client (serverAddress, port);
       client.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
       client.SetAttribute ("Interval", TimeValue (interPacketInterval));
       client.SetAttribute ("PacketSize", UintegerValue (packetSize));
       apps = client.Install (node);
-      apps.Start (Seconds (0.0));
+      apps.Start (Seconds (2.0));
       apps.Stop (Seconds (DURATION));
     }
 
@@ -165,7 +175,7 @@ int main (int argc, char *argv[])
   cmd.Parse (argc, argv);
 
   // สร้างคน 100 คน โดยแบ่งเป็นพ่อค้า 20 ลูกค้า 80
-  People people(100, 80);
+  People people(4, 2);
 
   // setCSMA -> DataRate, Delay, Mtu
   people.setCSMA(5000000, 2, 1400);
@@ -186,7 +196,7 @@ int main (int argc, char *argv[])
 
   // ไฟล์ NetAnimation
   pAnim = new AnimationInterface ("covid-model.xml");
-  // anim.EnablePacketMetadata (true);
+  pAnim->EnablePacketMetadata (true);
 
   // เปลี่ยนสี node
   // anim.UpdateNodeColor (people.node.Get(0), 0, 0, 255);
