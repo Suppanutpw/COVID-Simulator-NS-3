@@ -4,7 +4,7 @@ checklist
  - ส่ง broadcast ไปหาทุกคน (ได้แล้ว)
  - จับ event ว่ามีการรับ udp (ได้แล้ว)
  - สุ่มโอกาสการติดโควิด (ยังไม่ทำ) แก้ได้ทีี่ function receiveCOVID
- - ยังไม่ติดโควิดสีแดง ถ้าติดจะเป็นสีฟ้า (ขัดใจแป๊ป) แก้หลังบรรทัด 235 ได้
+ - ยังไม่ติดโควิดสีแดง ถ้าติดจะเป็นสีฟ้า (ขัดใจแป๊ป) แก้หลังบรรทัด 246 ได้
 
 
 ใช้ mobility ในการเคลื่อนไหว
@@ -206,7 +206,7 @@ bool People::receiveCOVID (
 Ptr<Node> People::getNodeFromAddress(const Address &address) {
   // เอา mac address มาหาว่าเป็น node ไหนเพื่อไปดึง pos(x, y)
   int found = 0;
-  for (int i = 0; i < node.GetN(); i++) {
+  for (uint32_t i = 0; i < node.GetN(); i++) {
     if (operator == (address, node.Get(i)->GetDevice(1)->GetAddress())) {
       found = i;
       break;
