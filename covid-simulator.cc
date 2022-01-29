@@ -123,7 +123,7 @@ void People::setUDPServer() {
 void People::setUDPClient() {
   uint32_t packetSize = 1024;
   uint32_t maxPacketCount = 1000;
-  Time interPacketInterval = Seconds (1);
+  Time interPacketInterval = Seconds (1.0);
   UdpEchoClientHelper client (serverAddress, port);
   client.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
   client.SetAttribute ("Interval", TimeValue (interPacketInterval));
@@ -135,23 +135,26 @@ void People::setUDPClient() {
 
 void People::setMobility() {
   // การเคลื่อนไหวของลูกค้าที่เดินไป-มา
-  ObjectFactory pos;
-  pos.SetTypeId ("ns3::RandomBoxPositionAllocator");
-  pos.Set ("X", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=200.0]"));
-  pos.Set ("Y", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=200.0]"));
-
-  Ptr<PositionAllocator> taPositionAlloc = pos.Create ()->GetObject<PositionAllocator> ();
-  mobility_move.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
-                            "Speed", StringValue("ns3::UniformRandomVariable[Min=5.0|Max=20.0]"),
-                            "Pause", StringValue("ns3::ConstantRandomVariable[Constant=0.0]"),
-                            "PositionAllocator", PointerValue (taPositionAlloc));
-  mobility_move.SetPositionAllocator (taPositionAlloc);
+  mobility_move.SetMobilityModel ("ns3::GaussMarkovMobilityModel",
+    "Bounds", BoxValue (Box (0, 200, 0, 200, 0, 10)),
+    "TimeStep", TimeValue (MilliSeconds (10)),
+    "Alpha", DoubleValue (0.85),
+    "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=50|Max=100]"),
+    "MeanDirection", StringValue ("ns3::UniformRandomVariable[Min=0|Max=6.283185307]"),
+    "MeanPitch", StringValue ("ns3::UniformRandomVariable[Min=0.05|Max=0.05]"),
+    "NormalVelocity", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.0|Bound=0.0]"),
+    "NormalDirection", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.2|Bound=0.4]"),
+    "NormalPitch", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.02|Bound=0.04]"));
+  mobility_move.SetPositionAllocator ("ns3::RandomBoxPositionAllocator",
+    "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+    "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+    "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=10]"));
 
   // การเคลื่อนไหวของพ่อค้าที่ยืนเฝ้าร้านอย่างเดียว
-  mobility_nomove.SetPositionAllocator ("ns3::RandomDiscPositionAllocator",
-                             "X", StringValue ("100.0"),
-                             "Y", StringValue ("100.0"),
-                             "Rho", StringValue ("ns3::UniformRandomVariable[Min=0|Max=100]"));
+  mobility_nomove.SetPositionAllocator ("ns3::RandomBoxPositionAllocator",
+    "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+    "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+    "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=10]"));
 
   for (int i = 0; i < customer_count; i++) {
     mobility_move.Install (node.Get (i)); 
