@@ -21,7 +21,9 @@ checklist
 #define DURATION 10.0 // เวลาจำลอง 10 วินาที
 #define N 100 // จำนวนคนทั้งหมด
 #define M 80 // จำนวนลูกค้า
-#define INFECTRAD 20 // ระยะห่างที่ปลอดภัย (จำลอง 2 เมตร)
+#define X_BOX 100 // กว้างแนวนอน
+#define Y_BOX 50 // กว้างแนวตั้ง
+#define INFECTRAD 2 // ระยะห่างที่ปลอดภัย (จำลอง 2 เมตร)
 #define INFECTCHANCE 1.5 // โอกาสติด 1.5%
 // list คนที่อยากให้ติดเชื้อ เลือกค่าใน array ได้ 0 <= infected_list[i] < N
 // โดยท่ีค่า 0 <= infected_list[i] < M จะเป็นลูกค้า
@@ -130,7 +132,7 @@ void People::setUDPClient(int people_id, Time startTime) { // เสมือน
 void People::setMobility() {
   // การเคลื่อนไหวของลูกค้าที่เดินไป-มา
   mobility_move.SetMobilityModel ("ns3::GaussMarkovMobilityModel",
-    "Bounds", BoxValue (Box (0, 200, 0, 200, 0, 10)),
+    "Bounds", BoxValue (Box (0, X_BOX, 0, Y_BOX, 0, 10)),
     "TimeStep", TimeValue (MilliSeconds (10)),
     "Alpha", DoubleValue (0.85),
     "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=50|Max=100]"),
@@ -140,14 +142,14 @@ void People::setMobility() {
     "NormalDirection", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.2|Bound=0.4]"),
     "NormalPitch", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.02|Bound=0.04]"));
   mobility_move.SetPositionAllocator ("ns3::RandomBoxPositionAllocator",
-    "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
-    "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+    "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=" + to_string(X_BOX) + "]"),
+    "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=" + to_string(Y_BOX) + "]"),
     "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=10]"));
 
   // การเคลื่อนไหวของพ่อค้าที่ยืนเฝ้าร้านอย่างเดียว
   mobility_nomove.SetPositionAllocator ("ns3::RandomBoxPositionAllocator",
-    "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
-    "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+    "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=" + to_string(X_BOX) + "]"),
+    "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=" + to_string(Y_BOX) + "]"),
     "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=10]"));
 
   for (int i = 0; i < customer_count; i++) {
