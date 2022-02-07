@@ -25,6 +25,7 @@ checklist
 #define Y_BOX 50 // กว้างแนวตั้ง
 #define INFECTRAD 2 // ระยะห่างที่ปลอดภัย (จำลอง 2 เมตร)
 #define INFECTCHANCE 1.5 // โอกาสติด 1.5%
+#define NodeSide 1.0 // ขนาดของจุดใน netanim
 // list คนที่อยากให้ติดเชื้อ เลือกค่าใน array ได้ 0 <= infected_list[i] < N
 // โดยท่ีค่า 0 <= infected_list[i] < M จะเป็นลูกค้า
 // โดยท่ีค่า M <= infected_list[i] < N จะเป็นพ่อค้า
@@ -221,7 +222,7 @@ int main (int argc, char *argv[]) {
   cmd.Parse (argc, argv);
 
   // setCSMA -> DataRate, Delay, Mtu
-  people.setCSMA(5000000, 1, 1400);
+  people.setCSMA(5000000, 0, 1400);
 
   // setIPV4 -> ip, netmask
   people.setIPV4("10.10.100.0", "255.255.255.0");
@@ -239,10 +240,10 @@ int main (int argc, char *argv[]) {
     [] ()
     {
       for (int i = 0; i < M; i++) {
-        pAnim->UpdateNodeSize (i, 4.0, 4.0);
+        pAnim->UpdateNodeSize (i, NodeSide, NodeSide);
         pAnim->UpdateNodeColor (people.node.Get(i), colors[1].r, colors[1].g, colors[1].b);
       } for (int i = M; i < N; i++) {
-        pAnim->UpdateNodeSize (i, 4.0, 4.0);
+        pAnim->UpdateNodeSize (i, NodeSide, NodeSide);
         pAnim->UpdateNodeColor (people.node.Get(i), colors[2].r, colors[2].g, colors[2].b);
       }
 
