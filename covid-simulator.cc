@@ -208,7 +208,7 @@ bool People::receiveCOVID (
 int People::getNodeIdFromAddress(const Address &address) {
   // เอา mac address มาหาว่าเป็น node ไหนเพื่อไปดึง pos(x, y)
   int found = 0;
-  for (int i = 0; i < node.GetN(); i++) {
+  for (uint32_t i = 0; i < node.GetN(); i++) {
     if (operator == (address, node.Get(i)->GetDevice(1)->GetAddress())) {
       found = i;
       break;
