@@ -31,7 +31,7 @@ checklist
 // โดยท่ีค่า M <= infected_list[i] < N จะเป็นพ่อค้า
 // ex. N = 100, M = 80 ต้องการคนติดเชื้อเป็นลูกค้า 3 คน พ่อค้าอีก 2 คน
 // ก็ใส่ {0, 1, 2, 80, 81} ลงไป
-int infected_list[] = {0, 1, 2, 3, 4};
+int infected_list[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 using namespace ns3;
 using namespace std;
@@ -125,6 +125,7 @@ void People::setUDPClient(int people_id, Time startTime) { // เสมือน
   if (is_infected[people_id] == false) {
     is_infected[people_id] = true;
     apps = client.Install (node.Get (people_id));
+    cout << people_id << " (new infected)" << endl;
     apps.Start (startTime);
     apps.Stop (Seconds (DURATION));
   }
@@ -193,7 +194,7 @@ bool People::receiveCOVID (
 
       // เช็คว่าตัวเลขที่สุ่มจะเป็นเลขติดโควิดหรือไม่
       if (random <= chance) {
-        int dst_node_id = getNodeIdFromAddress(dst);
+        int dst_node_id = dst_device->GetNode()->GetId();
         people.setUDPClient(dst_node_id, Simulator::Now());
         pAnim->UpdateNodeColor (dst_device->GetNode(), colors[0].r, colors[0].g, colors[0].b);
         // printf("source (%lf,%lf) -> dest (%lf,%lf) = %lf \n", src_x, src_y, dst_x, dst_y, distance);
